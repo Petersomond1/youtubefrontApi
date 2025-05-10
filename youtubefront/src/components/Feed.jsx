@@ -1,63 +1,46 @@
 import React, { useEffect, useState } from "react";
-
-
 import "../index.css";
-
-
 import { fetchFromAPI } from "../utils/fetchFromAPI";
-
-
 import Sidebar from './Sidebar';
-
-
 import Videos from './Videos';
-
-
-
-
+import { FaHandMiddleFinger } from "react-icons/fa";
+import axios from 'axios'
 
 function Feed() {
-
-
   const [selectedCategory, setSelectedCategory] = useState("New");
-
-
   const [videos, setVideos] = useState([]);
+  
 
+  useEffect(()=>{
+    const handleGet = async ()=>{
+      try {
+        console.log("sending request")
+        const response = await axios.get(`http://localhost:5000/api/videos?category=${selectedCategory}`)
+        console.log("response", response)
+      } catch (error) {
+        console.error("error while sending get request", error)
+      }
+    }
+    handleGet()
 
-
-
+  },[])
 
   useEffect(() => {
-
-
-    // setVideos(null);
-
-
+   // setVideos(null);
      fetchFromAPI(`search?part=snippet&q=${selectedCategory}`)
-
-
      .then((data) => setVideos(data.items));
 
-
-     const fetchResults = async () => {
-       const response = await axios.get(`http://localhost:3000/search?part=snippet&q=${selectedCategory}`);
-         console.log('here is the dat', response)
-     }
-
-     fetchResults();
-
+     
   }, [selectedCategory]);
 
 
-
+  
 
 
   return (
 
 
     <div className="feed1">
-
 
       <div className="feed2">
 
@@ -84,6 +67,7 @@ function Feed() {
 
 
         </h4>
+        <button >Click here</button>
 
 
          <Videos videos={videos}/> 
