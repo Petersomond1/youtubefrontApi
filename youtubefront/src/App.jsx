@@ -1,7 +1,8 @@
+// youtubefront\src\App.jsx
 import React from 'react';
 import './index.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Navbar, Feed, VideoDetail, ChannelDetail, SearchFeed} from './components/index';
+import { Navbar, Feed, VideoDetail, ChannelDetail, SearchFeed, Uploader} from './components/index';
 
 function App () {
   return (
@@ -13,6 +14,7 @@ function App () {
           <Route path="/Video/:id" element={<VideoDetail />} />
           <Route path="/Channel/:id" element={<ChannelDetail />} />
           <Route path="/search/:searchTerm" element={<SearchFeed />} />
+          <Route path="/upload" element={<Uploader />} />
         </Routes>
       </div>
     </BrowserRouter>

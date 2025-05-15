@@ -1,0 +1,30 @@
+{
+    "name": "youtube_api",
+    "version": "1.0.0",
+    "main": "server.js",
+    "type": "commonjs",
+    "scripts": {
+        "start": "nodemon server.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.806.0",
+        "@aws-sdk/s3-request-presigner": "^3.806.0",
+        "axios": "^1.9.0",
+        "body-parser": "^2.2.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.5.0",
+        "express": "^5.1.0",
+        "morgan": "^1.10.0",
+        "multer": "^1.4.5-lts.2",
+        "mysql2": "^3.14.1",
+        "node-cache": "^5.1.2",
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.10"
+    }
+}
