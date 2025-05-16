@@ -1,25 +1,16 @@
-
-
-// const BASE_URL = "https://youtube-v31.p.rapidapi.com";
-
+// youtubefrontApi\youtubefront\src\utils\fetchFromAPI.js
 import axios from "axios";
 
-const options = {
-  method: "GET",
+const BASE_URL = "http://localhost:5000/api/videos";
 
-  params: {
-    maxResults: "50",
-  },
-
-  headers: {
-    "X-RapidAPI-Key": "eaf54a6583msh168339a792b7460p16e58fjsn309b077e0b30",
-
-    "X-RapidAPI-Host": "youtube-v31.p.rapidapi.com",
-  },
+const fetchFromAPI = async (endpoint) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/${endpoint}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching data from API:", error);
+    throw error;
+  }
 };
 
-export const fetchFromAPI = async (url) => {
-  const { data } = await axios.get(`${BASE_URL}/${url}`, options);
-
-  return data;
-};
+export { fetchFromAPI };
