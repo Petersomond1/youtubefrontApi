@@ -52,7 +52,7 @@ const generateUploadURL = async (req, res) => {
   }
   // const sanitizedFileName = `${cuid()}.${fileName.replace(/\s+/g, '_')}`;
 
-  const sanitizedFileName = `${uuidv4()}.${fileName.replace(/\s+/g, '_')}`;
+  const sanitizedFileName = `${fileName.replace(/\s+/g, '_')}`;
 
   // Adjusting time for the 4-hour difference between local and AWS server time
   const adjustedDate = getAdjustedTime(0); // Reduce time by 4 hours
@@ -88,10 +88,10 @@ const uploadToS3 = async (req, res) => {
   }
   const  file = req.file;  // file from frontend
   const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {}; // Parse metadata from request body
-  const sanitizedFileName = `${uuidv4()}.${file.originalname.replace(/\s+/g, '_')}`;
+  const sanitizedFileName = `${file.originalname.replace(/\s+/g, '_')}`;
 
 
-  const params = {
+  const params = {  
     Bucket: process.env.MEDIA_S3_BUCKET_NAME,
     Key: `uploads/${sanitizedFileName}`,
      Body: file.buffer, // Use the buffer from multer
@@ -128,7 +128,7 @@ const uploadToS3 = async (req, res) => {
     
 
     await storeMetadataInDB(fileMetadata); // Store metadata in DB
-    res.json({ message: 'File uploaded successfully', url: fileUrl });
+    res.json({ message: 'File uploaded successfully and metadata also saved succeefuuly', url: fileUrl, metadata: fileMetadata });
   } catch (error) {
     console.error('Error uploading file to DB:', error);
     res.status(500).send('Error uploading to database');

@@ -1,8 +1,6 @@
 // youtubefront\src\components\Sidebar.jsx
 import React from "react";
-
 import "../index.css";
-
 import { categories } from "../utils/Constants";
 
 function Sidebar({ selectedCategory, setSelectedCategory }) {

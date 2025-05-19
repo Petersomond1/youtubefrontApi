@@ -7,11 +7,22 @@ const videoController = require('../controllers/videofetchController');
 // Apply API key validation middleware to all routes
 // router.use(validateApiKey);
 
-// Get videos by search query
-router.get('/', videoController.getAllVideos);
+
+//router.get('/', videoController.getAllVideos);
+
+// Fetch all videos in a category
+router.get("/all", videoController.getAllVideos);
+
+
 router.get('/search', videoController.searchVideos);
+
 
 // Get video details by ID
 router.get('/:videoId', videoController.getVideoDetails);
+
+// Fetch details of a specific video from S3/MySQL
+router.get("/s3/:id", videoController.getS3VideoDetails);
+
+
 
 module.exports = router;

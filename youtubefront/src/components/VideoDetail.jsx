@@ -1,24 +1,34 @@
-// // youtubefront\src\components\VideoDetail.jsx
+// youtubefront\src\components\VideoDetail.jsx
+import React, { useEffect, useState } from "react";
 import "../index.css";
 import { useParams, Link } from "react-router-dom";
 import { fetchFromAPI } from "../utils/fetchFromAPI";
 import ReactPlayer from "react-player";
 import { FaCheckCircle } from "react-icons/fa";
-import React, { useEffect, useState } from "react";
 import { Videos, Loader } from ".";
 
 function VideoDetail() {
   const [videoDetail, setVideoDetail] = useState(null);
-  const [videos, setVideos] = useState([]);
+  const [relatedVideos, setRelatedVideos] = useState([]);
   const { id } = useParams();
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
-      const videoData = await fetchFromAPI(`${id}`);
-      setVideoDetail(videoData);
-
-      const relatedVideos = await fetchFromAPI(`search?q=${videoData.title}`);
-      setVideos(relatedVideos.videos);
+      try {
+        // Fetch video details from YouTube API
+        const youtubeData = await fetchFromAPI(`${id}`);
+        if (youtubeData && youtubeData.title) {
+          setVideoDetail(youtubeData);
+          const related = await fetchFromAPI(`search?q=${youtubeData.title}`);
+          setRelatedVideos(related.youtubeVideos);
+        } else {
+          // Fallback to S3/Database API
+          const s3Data = await fetchFromAPI(`s3/${id}`);
+          setVideoDetail(s3Data);
+        }
+      } catch (error) {
+        console.error("Error fetching video details:", error);
+      }
     };
 
     fetchVideoDetails();
@@ -26,8 +36,7 @@ function VideoDetail() {
 
   if (!videoDetail) return <Loader />;
 
-  const { title, channelTitle, channelId, viewCount, likeCount } =
-    videoDetail;
+  const { title, channelTitle, channelId, viewCount, likeCount, fileUrl } = videoDetail;
 
   return (
     <div style={{ minHeight: "95vh" }}>
@@ -40,11 +49,17 @@ function VideoDetail() {
       >
         <div style={{ flex: 1 }}>
           <div style={{ width: "100%", position: "sticky", top: "86px" }}>
-            <ReactPlayer
-              url={`https://www.youtube.com/watch?v=${id}`}
-              className="react-player"
-              controls
-            />
+            {fileUrl ? (
+              // Render ReactPlayer for S3/Database videos
+              <ReactPlayer url={fileUrl} className="react-player" controls />
+            ) : (
+              // Render ReactPlayer for YouTube videos
+              <ReactPlayer
+                url={`https://www.youtube.com/watch?v=${id}`}
+                className="react-player"
+                controls
+              />
+            )}
 
             <p style={{ color: "#fff", fontWeight: "bold", padding: "2px" }}>
               {title}
@@ -61,30 +76,35 @@ function VideoDetail() {
                 paddingRight: "2px",
               }}
             >
-              <Link to={`/channel/${channelId}`}>
-                <p style={{ fontSize: "small", color: "#fff" }}>
-                  {channelTitle}
-                  <FaCheckCircle
-                    style={{
-                      fontSize: "12px",
-                      color: "gray",
-                      marginLeft: "5px",
-                      marginBottom: "2px",
-                    }}
-                  />
-                </p>
-              </Link>
+              {channelTitle && channelId && (
+                <Link to={`/channel/${channelId}`}>
+                  <p style={{ fontSize: "small", color: "#fff" }}>
+                    {channelTitle}
+                    <FaCheckCircle
+                      style={{
+                        fontSize: "12px",
+                        color: "gray",
+                        marginLeft: "5px",
+                        marginBottom: "2px",
+                      }}
+                    />
+                  </p>
+                </Link>
+              )}
 
               <div
                 style={{ display: "flex", gap: "20px", alignItems: "center" }}
               >
-                <p style={{ opacity: 0.7 }}>
-                  {parseInt(viewCount).toLocaleString()} views
-                </p>
-
-                <p style={{ opacity: 0.7 }}>
-                  {parseInt(likeCount).toLocaleString()} likes
-                </p>
+                {viewCount && (
+                  <p style={{ opacity: 0.7 }}>
+                    {parseInt(viewCount).toLocaleString()} views
+                  </p>
+                )}
+                {likeCount && (
+                  <p style={{ opacity: 0.7 }}>
+                    {parseInt(likeCount).toLocaleString()} likes
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -99,7 +119,7 @@ function VideoDetail() {
             "@media (min-width: 768px)": { paddingTop: "1px" },
           }}
         >
-          <Videos videos={videos} direction="column" />
+          <Videos videos={relatedVideos} direction="column" />
         </div>
       </div>
     </div>

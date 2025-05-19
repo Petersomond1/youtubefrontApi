@@ -91,24 +91,24 @@ const Uploader = ({ onUploadSuccess }) => {
 
         console.log("response from second request ", response)
         // Step 3: Send metadata to the backend after successful upload
-        if (response.status === 200) {
-            console.log('third request to save metadata', data.uploadURL.split('?')[0])
-            console.log('metadata', metadata)
-            const uploadResponse = await axios.post('http://localhost:5000/api/media/upload', {
-              //const uploadResponse = await axios.post('https://www.youtube.petersomond.com/api/media/uploads', {
-                fileUrl: data.uploadURL.split('?')[0],
-                metadata: JSON.stringify(metadata),
-            });
-            console.log("uploadResponse ", uploadResponse)
-            if (uploadResponse.status === 200) {
-                alert('File uploaded successfully');
-                if (onUploadSuccess) {
-                    onUploadSuccess();
-                }
-            } else {
-                throw new Error('Failed to save metadata');
-            }
-        }
+        // if (response.status === 200) {
+        //     console.log('third request to save metadata', data.uploadURL.split('?')[0])
+        //     console.log('metadata', metadata)
+        //     const uploadResponse = await axios.post('http://localhost:5000/api/media/upload', {
+        //       //const uploadResponse = await axios.post('https://www.youtube.petersomond.com/api/media/uploads', {
+        //         fileUrl: data.uploadURL.split('?')[0],
+        //         metadata: JSON.stringify(metadata),
+        //     });
+        //     console.log("uploadResponse ", uploadResponse)
+        //     if (uploadResponse.status === 200) {
+        //         alert('File uploaded successfully');
+        //         if (onUploadSuccess) {
+        //             onUploadSuccess();
+        //         }
+        //     } else {
+        //         throw new Error('Failed to save metadata');
+        //     }
+        // }
       } catch (err) {
         console.error('Error uploading file:', err);
         alert('Error uploading file');
@@ -155,13 +155,22 @@ const Uploader = ({ onUploadSuccess }) => {
         value={metadata.thumbnail}
         onChange={handleMetadataChange}
       />
-      <input
-        type="text"
+       <select
         name="category"
-        placeholder="Category"
         value={metadata.category}
         onChange={handleMetadataChange}
-      />
+      >
+        <option value="">Select category</option>
+        <option value="Home">Home</option>
+        <option value="Atlanta">Atlanta</option>
+        <option value="New">New</option>
+        <option value="Fullstack Acadamy">Fullstack Acadamy</option>
+        <option value="Web Development">Web Development</option>
+        <option value="Coding">Coding</option>
+        <option value="ReactJS">ReactJS</option>
+        <option value="Computer">Computer</option>
+      </select>
+
       <input
         type="text"
         name="duration"
