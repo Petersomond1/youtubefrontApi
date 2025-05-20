@@ -1,3 +1,23 @@
+// import { Link } from "react-router-dom";
+
+// const VideoCard = ({ video }) => {
+//   const { id, fileUrl, title, thumbnail } = video;
+
+//   return (
+//     <div className="Videocard1">
+//       <Link to={id ? `/video/${id}` : fileUrl ? `/video/s3/${video.id}` : "#"}>
+//         <img src={thumbnail} alt={title} style={{ height: "180px", width: "320px" }} />
+//       </Link>
+//       <p>{title}</p>
+//     </div>
+//   );
+// };
+
+// export default VideoCard;
+
+
+//youtubefront\src\components\VideoCard.jsx
+
 import { Link } from "react-router-dom";
 import { FaRegCheckCircle } from "react-icons/fa";
 import {

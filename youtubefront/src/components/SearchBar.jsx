@@ -1,4 +1,3 @@
-//  youtubefront\src\components\SearchBar.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CiSearch } from "react-icons/ci";
@@ -6,7 +5,6 @@ import "../index.css";
 
 function SearchBar() {
   const [searchTerm, setSearchTerm] = useState("");
-
   const navigate = useNavigate();
 
   const onhandleSubmit = (e) => {
@@ -14,7 +12,6 @@ function SearchBar() {
 
     if (searchTerm) {
       navigate(`/search/${searchTerm}`);
-
       setSearchTerm("");
     }
   };
@@ -27,7 +24,6 @@ function SearchBar() {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
-
       <button
         type="submit"
         style={{ padding: "10px", color: "red" }}

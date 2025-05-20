@@ -13,16 +13,14 @@ const videoController = require('../controllers/videofetchController');
 // Fetch all videos in a category
 router.get("/all", videoController.getAllVideos);
 
-
-router.get('/search', videoController.searchVideos);
-
+// Search videos in both YouTube API and database
+router.get("/search", videoController.searchVideos);
 
 // Get video details by ID
-router.get('/:videoId', videoController.getVideoDetails);
+router.get("/:videoId", videoController.get1UtubeVideoAndDetails);
 
 // Fetch details of a specific video from S3/MySQL
-router.get("/s3/:id", videoController.getS3VideoDetails);
-
+router.get("/s3/:id", videoController.get1S3VideoAndDetails);
 
 
 module.exports = router;

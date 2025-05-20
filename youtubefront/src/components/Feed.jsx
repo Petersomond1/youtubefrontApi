@@ -16,7 +16,9 @@ function Feed() {
     try {
       const data = await fetchFromAPI(`all?category=${selectedCategory}&pageToken=${pageToken}`);
       setYoutubeVideos((prev) => [...prev, ...data.youtubeVideos]);
-      setS3Videos(data.s3Videos); // S3 videos are fetched all at once
+      setS3Videos(data.s3Videos ?? []); // S3 videos are fetched all at once
+      console.log("@feed Fetched YouTube videos:", data.youtubeVideos);
+      console.log("@feed Fetched S3 videos:", data.s3Videos);
       setNextPageToken(data.nextPageToken);
       setError(null);
     } catch (error) {
