@@ -1,4 +1,3 @@
-//youtubefront\src\components\VideoDetail.jsx
 import React, { useEffect, useState } from "react";
 import "../index.css";
 import { useParams, Link } from "react-router-dom";
@@ -10,42 +9,86 @@ import VideoPlayer from "./VideoPlayer";
 function VideoDetail() {
   const [videoDetail, setVideoDetail] = useState(null);
   const [relatedVideos, setRelatedVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { id } = useParams();
+
+  // Determine source from ID format
+  const getSourceAndId = (urlId) => {
+    if (urlId.startsWith('db_')) {
+      return { source: 'database', id: urlId };
+    } else {
+      return { source: 'youtube', id: urlId };
+    }
+  };
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
       try {
-        // Fetch video details from YouTube API and S3/Database concurrently
-        const [youtubeData, s3Data] = await Promise.all([
-          fetchFromAPI(`details/${id}`).catch((error) => {
-            console.error("Error fetching YouTube video details:", error);
-            return null; // Handle YouTube API errors gracefully
-          }),
-          fetchFromAPI(`s3/${id}`).catch((error) => {
-            console.error("Error fetching S3 video details:", error);
-            return null; // Handle S3/Database errors gracefully
-          }),
-        ]);
+        setLoading(true);
+        setError(null);
 
-        // Prioritize YouTube data if available, otherwise use S3 data
-        setVideoDetail(youtubeData || s3Data);
-
-        // Fetch related videos from YouTube API
-        if (youtubeData && youtubeData.title) {
-          const related = await fetchFromAPI(`search?q=${youtubeData.title}`);
-          setRelatedVideos(related.youtubeVideos || []);
+        const { source, id: videoId } = getSourceAndId(id);
+        
+        // Use the new unified endpoint
+        const data = await fetchFromAPI(`video/${videoId}?source=${source}`);
+        console.log("Video data:", data);
+        if (!data.success) {
+          throw new Error(data.error || "Failed to fetch video");
         }
+
+        setVideoDetail(data.video);
+        setRelatedVideos(data.relatedVideos || []);
+
       } catch (error) {
         console.error("Error fetching video details:", error);
+        setError(error.message || "Failed to load video");
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchVideoDetails();
+    if (id) {
+      fetchVideoDetails();
+    }
   }, [id]);
+
+  // Format numbers for display
+  const formatNumber = (num) => {
+    if (!num) return "0";
+    const number = parseInt(num);
+    if (number >= 1000000) {
+      return (number / 1000000).toFixed(1) + "M";
+    } else if (number >= 1000) {
+      return (number / 1000).toFixed(1) + "K";
+    }
+    return number.toLocaleString();
+  };
+
+  if (loading) return <Loader />;
+  
+  if (error) {
+    return (
+      <div style={{ minHeight: "95vh", color: "white", padding: "20px" }}>
+        <div>Error: {error}</div>
+      </div>
+    );
+  }
 
   if (!videoDetail) return <Loader />;
 
-  const { title, channelTitle, channelId, viewCount, likeCount } = videoDetail;
+  const { 
+    title, 
+    channelTitle, 
+    channelId, 
+    viewCount, 
+    likeCount, 
+    source,
+    description,
+    publishedAt,
+    format,
+    size
+  } = videoDetail;
 
   return (
     <div style={{ minHeight: "95vh" }}>
@@ -57,8 +100,23 @@ function VideoDetail() {
         }}
       >
         <div style={{ flex: 1 }}>
+          {/* Video Player */}
           <VideoPlayer video={videoDetail} />
 
+          {/* Video Title */}
+          <div style={{ padding: "15px 2px 10px 2px" }}>
+            <h1 style={{ 
+              color: "#fff", 
+              fontSize: "18px", 
+              fontWeight: "bold",
+              margin: "0",
+              lineHeight: "1.3"
+            }}>
+              {title}
+            </h1>
+          </div>
+
+          {/* Video Stats and Channel Info */}
           <div
             style={{
               display: "flex",
@@ -68,41 +126,104 @@ function VideoDetail() {
               paddingTop: "1px",
               paddingLeft: "2px",
               paddingRight: "2px",
+              flexWrap: "wrap",
+              gap: "10px"
             }}
           >
-            {channelTitle && channelId && (
-              <Link to={`/channel/${channelId}`}>
-                <p style={{ fontSize: "small", color: "#fff" }}>
+            {/* Channel Info - Only for YouTube */}
+            {source === 'youtube' && channelTitle && channelId && (
+              <Link to={`/channel/${channelId}`} style={{ textDecoration: "none" }}>
+                <p style={{ 
+                  fontSize: "small", 
+                  color: "#fff", 
+                  margin: "0",
+                  display: "flex",
+                  alignItems: "center"
+                }}>
                   {channelTitle}
                   <FaCheckCircle
                     style={{
                       fontSize: "12px",
                       color: "gray",
                       marginLeft: "5px",
-                      marginBottom: "2px",
                     }}
                   />
                 </p>
               </Link>
             )}
 
+            {/* Video Stats */}
             <div
-              style={{ display: "flex", gap: "20px", alignItems: "center" }}
+              style={{ 
+                display: "flex", 
+                gap: "20px", 
+                alignItems: "center",
+                flexWrap: "wrap"
+              }}
             >
-              {viewCount && (
-                <p style={{ opacity: 0.7 }}>
-                  {parseInt(viewCount).toLocaleString()} views
-                </p>
+              {/* YouTube Stats */}
+              {source === 'youtube' && (
+                <>
+                  {viewCount && (
+                    <p style={{ opacity: 0.7, margin: "0", fontSize: "14px" }}>
+                      {formatNumber(viewCount)} views
+                    </p>
+                  )}
+                  {likeCount && (
+                    <p style={{ opacity: 0.7, margin: "0", fontSize: "14px" }}>
+                      {formatNumber(likeCount)} likes
+                    </p>
+                  )}
+                </>
               )}
-              {likeCount && (
-                <p style={{ opacity: 0.7 }}>
-                  {parseInt(likeCount).toLocaleString()} likes
+
+              {/* Database Video Stats */}
+              {source === 'database' && (
+                <>
+                  {format && (
+                    <p style={{ opacity: 0.7, margin: "0", fontSize: "14px" }}>
+                      Format: {format.toUpperCase()}
+                    </p>
+                  )}
+                  {size && (
+                    <p style={{ opacity: 0.7, margin: "0", fontSize: "14px" }}>
+                      Size: {(size / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                  )}
+                </>
+              )}
+
+              {publishedAt && (
+                <p style={{ opacity: 0.7, margin: "0", fontSize: "14px" }}>
+                  {source === 'youtube' ? 'Published' : 'Uploaded'}: {new Date(publishedAt).toLocaleDateString()}
                 </p>
               )}
             </div>
           </div>
+
+          {/* Description */}
+          {description && (
+            <div style={{ 
+              padding: "15px 2px", 
+              color: "#ccc",
+              borderTop: "1px solid #333",
+              marginTop: "15px"
+            }}>
+              <h3 style={{ color: "#fff", fontSize: "16px", marginBottom: "10px" }}>
+                Description
+              </h3>
+              <p style={{ 
+                lineHeight: "1.6", 
+                fontSize: "14px",
+                whiteSpace: "pre-wrap"
+              }}>
+                {description}
+              </p>
+            </div>
+          )}
         </div>
 
+        {/* Related Videos Sidebar */}
         <div
           style={{
             justifyContent: "center",
@@ -110,9 +231,17 @@ function VideoDetail() {
             paddingLeft: "2px",
             paddingTop: "5px",
             "@media (min-width: 768px)": { paddingTop: "1px" },
+            minWidth: "300px"
           }}
         >
-          <Videos videos={relatedVideos} direction="column" />
+          {relatedVideos.length > 0 && (
+            <>
+              <h3 style={{ color: "#fff", fontSize: "16px", marginBottom: "15px", paddingLeft: "10px" }}>
+                Related Videos
+              </h3>
+              <Videos videos={relatedVideos} direction="column" />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -120,590 +249,3 @@ function VideoDetail() {
 }
 
 export default VideoDetail;
-
-
-// //youtubefront\src\components\VideoDetail.jsx
-// import React, { useEffect, useState } from "react";
-// import "../index.css";
-// import { useParams, Link } from "react-router-dom";
-// import { fetchFromAPI } from "../utils/fetchFromAPI";
-// import { FaCheckCircle } from "react-icons/fa";
-// import { Videos, Loader } from ".";
-// import VideoPlayer from "./VideoPlayer";
-
-// function VideoDetail() {
-//   const [videoDetail, setVideoDetail] = useState(null);
-//   const [relatedVideos, setRelatedVideos] = useState([]);
-//   const { id } = useParams();
-
-//   useEffect(() => {
-//     const fetchVideoDetails = async () => {
-//       try {
-//         // Attempt to fetch video details from YouTube API
-//         const youtubeData = await fetchFromAPI(`details/${id}`);
-//         if (youtubeData && youtubeData.title) {
-//           setVideoDetail(youtubeData);
-
-//           // Fetch related videos
-//           const related = await fetchFromAPI(`search?q=${youtubeData.title}`);
-//           setRelatedVideos(related.youtubeVideos);
-//         } else {
-//           // Fallback to S3/Database API
-//           const s3Data = await fetchFromAPI(`s3/${id}`);
-//           setVideoDetail(s3Data);
-//         }
-//       } catch (error) {
-//         console.error("Error fetching video details:", error);
-//       }
-//     };
-
-//     fetchVideoDetails();
-//   }, [id]);
-
-//   if (!videoDetail) return <Loader />;
-
-//   const { title, channelTitle, channelId, viewCount, likeCount } = videoDetail;
-
-//   return (
-//     <div style={{ minHeight: "95vh" }}>
-//       <div
-//         style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           "@media (min-width: 768px)": { flexDirection: "row" },
-//         }}
-//       >
-//         <div style={{ flex: 1 }}>
-//           <VideoPlayer video={videoDetail} />
-
-//           <div
-//             style={{
-//               display: "flex",
-//               flexDirection: "row",
-//               justifyContent: "space-between",
-//               color: "#fff",
-//               paddingTop: "1px",
-//               paddingLeft: "2px",
-//               paddingRight: "2px",
-//             }}
-//           >
-//             {channelTitle && channelId && (
-//               <Link to={`/channel/${channelId}`}>
-//                 <p style={{ fontSize: "small", color: "#fff" }}>
-//                   {channelTitle}
-//                   <FaCheckCircle
-//                     style={{
-//                       fontSize: "12px",
-//                       color: "gray",
-//                       marginLeft: "5px",
-//                       marginBottom: "2px",
-//                     }}
-//                   />
-//                 </p>
-//               </Link>
-//             )}
-
-//             <div
-//               style={{ display: "flex", gap: "20px", alignItems: "center" }}
-//             >
-//               {viewCount && (
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(viewCount).toLocaleString()} views
-//                 </p>
-//               )}
-//               {likeCount && (
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(likeCount).toLocaleString()} likes
-//                 </p>
-//               )}
-//             </div>
-//           </div>
-//         </div>
-
-//         <div
-//           style={{
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingLeft: "2px",
-//             paddingTop: "5px",
-//             "@media (min-width: 768px)": { paddingTop: "1px" },
-//           }}
-//         >
-//           <Videos videos={relatedVideos} direction="column" />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default VideoDetail;
-
-// // youtubefront\src\components\VideoDetail.jsx
-// import React, { useEffect, useState } from "react";
-// import "../index.css";
-// import { useParams, Link } from "react-router-dom";
-// import { fetchFromAPI } from "../utils/fetchFromAPI";
-// import ReactPlayer from "react-player";
-// import { FaCheckCircle } from "react-icons/fa";
-// import { Videos, Loader } from ".";
-
-// function VideoDetail() {
-//   const [videoDetail, setVideoDetail] = useState(null);
-//   const [relatedVideos, setRelatedVideos] = useState([]);
-//   const { id } = useParams();
-
-//   useEffect(() => {
-//     const fetchVideoDetails = async () => {
-//       try {
-//         // Fetch video details from YouTube API
-//         const youtubeData = await fetchFromAPI(`${id}`);
-//         if (youtubeData && youtubeData.title) {
-//           setVideoDetail(youtubeData);
-//           const related = await fetchFromAPI(`search?q=${youtubeData.title}`);
-//           setRelatedVideos(related.youtubeVideos);
-//         } else {
-//           // Fallback to S3/Database API
-//           const s3Data = await fetchFromAPI(`s3/${id}`);
-//           setVideoDetail(s3Data);
-//         }
-//       } catch (error) {
-//         console.error("Error fetching video details:", error);
-//       }
-//     };
-
-//     fetchVideoDetails();
-//   }, [id]);
-
-//   if (!videoDetail) return <Loader />;
-
-//   const { title, channelTitle, channelId, viewCount, likeCount, fileUrl } = videoDetail;
-
-//   return (
-//     <div style={{ minHeight: "95vh" }}>
-//       <div
-//         style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           "@media (min-width: 768px)": { flexDirection: "row" },
-//         }}
-//       >
-//         <div style={{ flex: 1 }}>
-//           <div style={{ width: "100%", position: "sticky", top: "86px" }}>
-//             {fileUrl ? (
-//               // Render ReactPlayer for S3/Database videos
-//               <ReactPlayer url={fileUrl} className="react-player" controls />
-//             ) : (
-//               // Render ReactPlayer for YouTube videos
-//               <ReactPlayer
-//                 url={`https://www.youtube.com/watch?v=${id}`}
-//                 className="react-player"
-//                 controls
-//               />
-//             )}
-
-//             <p style={{ color: "#fff", fontWeight: "bold", padding: "2px" }}>
-//               {title}
-//             </p>
-
-//             <div
-//               style={{
-//                 display: "flex",
-//                 flexDirection: "row",
-//                 justifyContent: "space-between",
-//                 color: "#fff",
-//                 paddingTop: "1px",
-//                 paddingLeft: "2px",
-//                 paddingRight: "2px",
-//               }}
-//             >
-//               {channelTitle && channelId && (
-//                 <Link to={`/channel/${channelId}`}>
-//                   <p style={{ fontSize: "small", color: "#fff" }}>
-//                     {channelTitle}
-//                     <FaCheckCircle
-//                       style={{
-//                         fontSize: "12px",
-//                         color: "gray",
-//                         marginLeft: "5px",
-//                         marginBottom: "2px",
-//                       }}
-//                     />
-//                   </p>
-//                 </Link>
-//               )}
-
-//               <div
-//                 style={{ display: "flex", gap: "20px", alignItems: "center" }}
-//               >
-//                 {viewCount && (
-//                   <p style={{ opacity: 0.7 }}>
-//                     {parseInt(viewCount).toLocaleString()} views
-//                   </p>
-//                 )}
-//                 {likeCount && (
-//                   <p style={{ opacity: 0.7 }}>
-//                     {parseInt(likeCount).toLocaleString()} likes
-//                   </p>
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div
-//           style={{
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingLeft: "2px",
-//             paddingTop: "5px",
-//             "@media (min-width: 768px)": { paddingTop: "1px" },
-//           }}
-//         >
-//           <Videos videos={relatedVideos} direction="column" />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default VideoDetail;
-
-
-// // youtubefront\src\components\VideoDetail.jsx
-// import "../index.css";
-// import { useParams, Link } from "react-router-dom";
-// import { fetchFromAPI } from "../utils/fetchFromAPI";
-// import ReactPlayer from "react-player";
-// import { FaCheckCircle } from "react-icons/fa";
-// import React, { useEffect, useState } from "react";
-// import { Videos, Loader } from ".";
-
-// function VideoDetail() {
-//   const [videoDetail, setVideoDetail] = useState(null);
-//   const [videos, setVideos] = useState(null);
-//   const { id } = useParams();
-
-//   useEffect(() => {
-//     fetchFromAPI(`details/${id}`).then((data) => setVideoDetail(data));
-
-//     fetchFromAPI(`search?relatedToVideoId=${id}`).then((data) =>
-//       setVideos(data.videos)
-//     );
-//   }, [id]);
-
-//   if (!videoDetail) return <Loader />;
-
-//   const { title, id: videoId, channelTitle, viewCount, likeCount } = videoDetail;
-
-//   return (
-//     <div style={{ minHeight: "95vh" }}>
-//       <div
-//         style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           "@media (min-width: 768px)": { flexDirection: "row" },
-//         }}
-//       >
-//         <div style={{ flex: 1 }}>
-//           <div style={{ width: "100%", position: "sticky", top: "86px" }}>
-//             <ReactPlayer
-//               url={`https://www.youtube.com/watch?v=${videoId}`}
-//               className="react-player"
-//               controls
-//             />
-
-//             <p style={{ color: "#fff", fontWeight: "bold", padding: "2px" }}>
-//               {title}
-//             </p>
-
-//             <div
-//               style={{
-//                 display: "flex",
-//                 flexDirection: "row",
-//                 justifyContent: "space-between",
-//                 color: "#fff",
-//                 paddingTop: "1px",
-//                 paddingLeft: "2px",
-//                 paddingRight: "2px",
-//               }}
-//             >
-//               <Link to={`/channel/${channelTitle}`}>
-//                 <p style={{ fontSize: "small", color: "#fff" }}>
-//                   {channelTitle}
-//                   <FaCheckCircle
-//                     style={{
-//                       fontSize: "12px",
-//                       color: "gray",
-//                       marginLeft: "5px",
-//                       marginBottom: "2px",
-//                     }}
-//                   />
-//                 </p>
-//               </Link>
-
-//               <div
-//                 style={{ display: "flex", gap: "20px", alignItems: "center" }}
-//               >
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(viewCount).toLocaleString()} views
-//                 </p>
-
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(likeCount).toLocaleString()} likes
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div
-//           style={{
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingLeft: "2px",
-//             paddingTop: "5px",
-//             "@media (min-width: 768px)": { paddingTop: "1px" },
-//           }}
-//         >
-//           <Videos videos={videos} direction="column" />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default VideoDetail;
-
-// import "../index.css";
-// import { useParams, Link } from "react-router-dom";
-// import { fetchFromAPI } from "../utils/fetchFromAPI";
-// import ReactPlayer from "react-player";
-// import { FaCheckCircle } from "react-icons/fa";
-// import React, { useEffect, useState } from "react";
-// import { Videos, Loader } from ".";
-
-// function VideoDetail() {
-//   const [videoDetail, setVideoDetail] = useState(null);
-//   const [videos, setVideos] = useState(null);
-//   const { id } = useParams();
-
-//   useEffect(() => {
-//     fetchFromAPI(`videos?part=snippet,statistics&id=${id}`).then((data) =>
-//       setVideoDetail(data.items[0])
-//     );
-
-//     fetchFromAPI(`search?part=snippet&relatedToVideoId=${id}&type=video`).then(
-//       (data) => setVideos(data.items)
-//     );
-//   }, [id]);
-
-//   if (!videoDetail) return <Loader />;
-
-//   const { title, id: videoId, channelTitle, viewCount, likeCount } = videoDetail;
-
-//   return (
-//     <div style={{ minHeight: "95vh" }}>
-//       <div
-//         style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           "@media (min-width: 768px)": { flexDirection: "row" },
-//         }}
-//       >
-//         <div style={{ flex: 1 }}>
-//           <div style={{ width: "100%", position: "sticky", top: "86px" }}>
-//             <ReactPlayer
-//               url={`https://www.youtube.com/watch?v=${videoId}`}
-//               className="react-player"
-//               controls
-//             />
-
-//             <p style={{ color: "#fff", fontWeight: "bold", padding: "2px" }}>
-//               {title}
-//             </p>
-
-//             <div
-//               style={{
-//                 display: "flex",
-//                 flexDirection: "row",
-//                 justifyContent: "space-between",
-//                 color: "#fff",
-//                 paddingTop: "1px",
-//                 paddingLeft: "2px",
-//                 paddingRight: "2px",
-//               }}
-//             >
-//               <Link to={`/channel/${channelTitle}`}>
-//                 <p style={{ fontSize: "small", color: "#fff" }}>
-//                   {channelTitle}
-//                   <FaCheckCircle
-//                     style={{
-//                       fontSize: "12px",
-//                       color: "gray",
-//                       marginLeft: "5px",
-//                       marginBottom: "2px",
-//                     }}
-//                   />
-//                 </p>
-//               </Link>
-
-//               <div
-//                 style={{ display: "flex", gap: "20px", alignItems: "center" }}
-//               >
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(viewCount).toLocaleString()} views
-//                 </p>
-
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(likeCount).toLocaleString()} likes
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div
-//           style={{
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingLeft: "2px",
-//             paddingTop: "5px",
-//             "@media (min-width: 768px)": { paddingTop: "1px" },
-//           }}
-//         >
-//           <Videos videos={videos} direction="column" />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default VideoDetail;
-
-
-
-
-
-
-
-// // youtubefront\src\components\VideoDetail.jsx
-// import "../index.css";
-
-// import { useParams, Link } from "react-router-dom";
-
-// import { fetchFromAPI } from "../utils/fetchFromAPI";
-
-// import ReactPlayer from "react-player";
-
-// import { FaCheckCircle } from "react-icons/fa";
-
-// import React, { useEffect, useState } from "react";
-
-// import { Videos, Loader } from ".";
-
-// function VideoDetail() {
-//   const [videoDetail, setVideoDetail] = useState(null);
-
-//   const [videos, setVideos] = useState(null);
-
-//   const { id } = useParams();
-
-//   useEffect(() => {
-//     fetchFromAPI(`videos?part=snippet,statistics&id=${id}`).then((data) =>
-//       setVideoDetail(data.items[0])
-//     );
-
-//     fetchFromAPI(`search?part=snippet&relatedToVideoId=${id}&type=video`).then(
-//       (data) => setVideos(data.items)
-//     );
-//   }, [id]);
-
-//   if (!videoDetail?.snippet) return <Loader />;
-
-//   const {
-//     snippet: { title, channelId, channelTitle },
-//     statistics: { viewCount, likeCount },
-//   } = videoDetail;
-
-//   return (
-//     <div style={{ minHeight: "95vh" }}>
-//       <div
-//         style={{
-//           display: "flex",
-//           flexDirection: "column",
-//           "@media (min-width: 768px)": { flexDirection: "row" },
-//         }}
-//       >
-//         <div style={{ flex: 1 }}>
-//           <div style={{ width: "100%", position: "sticky", top: "86px" }}>
-//             <ReactPlayer
-//               url={`https://www.youtube.com/watch?v=${id}`}
-//               className="react-player"
-//               controls
-//             />
-
-//             <p style={{ color: "#fff", fontWeight: "bold", padding: "2px" }}>
-//               {title}
-//             </p>
-
-//             <div
-//               style={{
-//                 display: "flex",
-//                 flexDirection: "row",
-//                 justifyContent: "space-between",
-//                 color: "#fff",
-//                 paddingTop: "1px",
-//                 paddingLeft: "2px",
-//                 paddingRight: "2px",
-//               }}
-//             >
-//               <Link to={`/channel/${channelId}`}>
-//                 <p style={{ fontSize: "small", color: "#fff" }}>
-//                   {channelTitle}
-
-//                   <i>
-//                     {" "}
-//                     <FaCheckCircle
-//                       style={{
-//                         fontSize: "12px",
-//                         color: "gray",
-//                         marginLeft: "5px",
-//                         marginBottom: "2px",
-//                       }}
-//                     />{" "}
-//                   </i>
-//                 </p>
-//               </Link>
-
-//               <div
-//                 style={{ display: "flex", gap: "20px", alignItems: "center" }}
-//               >
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(viewCount).toLocaleString()} views
-//                 </p>
-
-//                 <p style={{ opacity: 0.7 }}>
-//                   {parseInt(likeCount).toLocaleString()} likes
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div
-//           style={{
-//             justifyContent: "center",
-//             alignItems: "center",
-//             paddingLeft: "2px",
-//             paddingTop: "5px",
-//             "@media (min-width: 768px)": { paddingTop: "1px" },
-//           }}
-//         >
-//           <Videos videos={videos} direction="column" />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default VideoDetail;

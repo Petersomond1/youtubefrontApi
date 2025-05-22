@@ -13,6 +13,8 @@ const videoController = require('../controllers/videofetchController');
 // Fetch all videos in a category
 router.get("/all", videoController.getAllVideos);
 
+router.get("/video/:id", videoController.getVideoById);
+
 // Search videos in both YouTube API and database
 router.get("/search", videoController.searchVideos);
 

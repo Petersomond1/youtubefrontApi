@@ -204,6 +204,196 @@ const videoController = {
     }
   },
 
+  getVideoById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { source } = req.query; // 'youtube' or 'database'
+  
+      if (!id || !source) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Video ID and source are required" 
+        });
+      }
+  
+      let videoData = null;
+  
+      if (source === 'youtube') {
+        // Check cache first
+        const cacheKey = `video-${id}`;
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+          console.log("Cache hit for video ID:", id);
+          return res.json({
+            success: true,
+            video: cachedData,
+            relatedVideos: []
+          });
+        }
+  
+        // Fetch YouTube video details
+        const url = `https://${RAPID_API_HOST}/videos`;
+        const params = {
+          part: "snippet,contentDetails,statistics",
+          id: id,
+        };
+  
+        const response = await axios.get(url, { ...options, params });
+        
+        if (!response.data.items || response.data.items.length === 0) {
+          return res.status(404).json({ 
+            success: false, 
+            error: "YouTube video not found" 
+          });
+        }
+  
+        const video = response.data.items[0];
+        videoData = {
+          id: video.id,
+          title: video.snippet.title,
+          description: video.snippet.description,
+          channelId: video.snippet.channelId,
+          channelTitle: video.snippet.channelTitle,
+          publishedAt: video.snippet.publishedAt,
+          thumbnail: video.snippet.thumbnails.maxres?.url || video.snippet.thumbnails.high?.url || video.snippet.thumbnails.medium?.url,
+          videoUrl: `https://www.youtube.com/embed/${video.id}`,
+          source: 'youtube',
+          // Statistics
+          viewCount: video.statistics?.viewCount || 0,
+          likeCount: video.statistics?.likeCount || 0,
+          commentCount: video.statistics?.commentCount || 0,
+          // Content details
+          duration: video.contentDetails?.duration || 'Unknown',
+          definition: video.contentDetails?.definition || 'Unknown',
+          // Additional snippet data
+          tags: video.snippet.tags || [],
+          categoryId: video.snippet.categoryId,
+        };
+  
+        // Cache the result
+        cache.set(cacheKey, videoData, 3600); // Cache for 1 hour
+  
+      } else if (source === 'database') {
+        // Extract the numeric ID from the prefixed ID (remove 'db_' prefix)
+        const numericId = id.startsWith('db_') ? id.replace('db_', '') : id;
+        
+        // Validate numeric ID
+        if (isNaN(numericId)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: "Invalid database video ID" 
+          });
+        }
+        
+        // Fetch from MySQL database
+        const query = `SELECT * FROM media_files WHERE id = ?`;
+        const [rows] = await pool.query(query, [numericId]);
+  
+        if (rows.length === 0) {
+          return res.status(404).json({ 
+            success: false, 
+            error: "Database video not found" 
+          });
+        }
+  
+        const row = rows[0];
+        videoData = {
+          id: `db_${row.id}`,
+          title: row.title,
+          description: row.description,
+          thumbnail: row.thumbnail_url || "default-thumbnail.jpg",
+          videoUrl: row.file_url, // Direct S3 URL
+          source: 'database',
+          publishedAt: row.created_at,
+          updatedAt: row.updated_at,
+          // File specific details
+          fileName: row.file_name,
+          fileType: row.file_type,
+          size: row.size,
+          format: row.format,
+          duration: row.duration,
+          resolution: row.resolution,
+          category: row.category,
+          tags: row.tags ? row.tags.split(',').map(tag => tag.trim()) : [],
+          // Additional metadata
+          monetization: row.monetization,
+          rightsClaims: row.rights_claims,
+          comments: row.comments,
+          videoTranscript: row.video_transcript,
+          geoCoordinates: row.geo_coordinates,
+        };
+  
+      } else {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid source. Must be 'youtube' or 'database'" 
+        });
+      }
+  
+      // Fetch related videos
+      let relatedVideos = [];
+      try {
+        if (source === 'youtube' && videoData.tags.length > 0) {
+          // Get related YouTube videos based on first tag
+          const relatedUrl = `https://${RAPID_API_HOST}/search`;
+          const relatedParams = {
+            q: videoData.tags[0],
+            part: "snippet",
+            maxResults: 5,
+            type: "video",
+          };
+          const relatedResponse = await axios.get(relatedUrl, { ...options, params: relatedParams });
+          
+          if (relatedResponse.data.items) {
+            relatedVideos = relatedResponse.data.items
+              .filter(item => item.id.videoId !== id) // Exclude current video
+              .slice(0, 4) // Limit to 4 related videos
+              .map(item => ({
+                id: item.id.videoId,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.medium.url,
+                channelTitle: item.snippet.channelTitle,
+                publishedAt: item.snippet.publishedAt,
+                source: 'youtube',
+              }));
+          }
+        } else if (source === 'database') {
+          // Get related database videos from same category
+          const relatedQuery = `SELECT * FROM media_files WHERE category = ? AND id != ? LIMIT 4`;
+          const [relatedRows] = await pool.query(relatedQuery, [videoData.category || 'New', numericId]);
+          
+          relatedVideos = relatedRows.map(row => ({
+            id: `db_${row.id}`,
+            title: row.title,
+            description: row.description,
+            thumbnail: row.thumbnail_url || "default-thumbnail.jpg",
+            source: 'database',
+            publishedAt: row.created_at,
+          }));
+        }
+      } catch (relatedError) {
+        console.warn("Failed to fetch related videos:", relatedError.message);
+        // Continue without related videos
+      }
+  
+      res.json({
+        success: true,
+        video: videoData,
+        relatedVideos: relatedVideos,
+      });
+  
+    } catch (error) {
+      console.error("Error fetching video details:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch video details", 
+        message: error.message 
+      });
+    }
+  },
+  
+
   // Get detailed information about a specific video
   get1UtubeVideoAndDetails: async (req, res) => {
     try {
