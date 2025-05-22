@@ -1,32 +1,25 @@
-//youtube_api\routes\mediauploadRoutes.js
-//Endpoints lineup:localhost:5173 => localhost:5000/api/media ......
-const express                = require("express");
-const multer                 = require("multer");
-const mediauploadController  = require("../controllers/mediauploadController");
-// import validateApiKey from '../middleware/validateApiKey';
+const express = require("express");
+const mediauploadController = require("../controllers/mediauploadController");
 
 const router = express.Router();
 
-
-
-// Apply API key validation middleware to all routes
-// router.use(validateApiKey);
-
-// configure multer for multipart/form-data “file” field:
-const upload = multer({ storage: multer.memoryStorage() }).single("file");
-
-// 1) GET  /api/media/generate-upload-url?fileName=…&fileType=…
+// 1) GET /api/media/generate-upload-url?fileName=…&fileType=…
+// (Keep for backward compatibility, but the new upload method doesn't need this)
 router.get(
   "/generate-upload-url",
   mediauploadController.generateUploadURL
 );
 
 // 2) POST /api/media/upload
-//    multipart/form-data: { file: <binary>, metadata: "<JSON string>" }
+// Now handles both main file and thumbnail with metadata
+// multipart/form-data: { 
+//   file: <main file binary>, 
+//   thumbnail: <thumbnail file binary> (optional),
+//   metadata: "<JSON string>" 
+// }
 router.post(
   "/upload",
-  upload,
-  mediauploadController.uploadToS3
+  mediauploadController.uploadToS3 // Multer is now handled inside the controller
 );
 
 module.exports = router;
