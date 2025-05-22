@@ -24,72 +24,96 @@ const videoController = {
   getAllVideos: async (req, res) => {
     try {
       const { category = "programming", pageToken = "" } = req.query;
-
+      
+      // Check if the category is valid
+      const validCategories = ["training", "New", "Home", "programming", "music", "sports", "news"];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+  
       // Fetch from YouTube API
-      const youtubePromise = (async () => {
-        const url = `https://${RAPID_API_HOST}/search`;
-        const params = {
-          q: category,
-          part: "snippet",
-          maxResults: 5,
-          type: "video",
-          pageToken,
-        };
-
-        const response = await axios.get(url, { ...options, params });
-        if (!response.data.items) throw new Error("No videos found in YouTube API");
-
-        const transformedData = response.data.items.map((item) => ({
-          id: item.id.videoId,
-          title: item.snippet.title,
-          description: item.snippet.description,
-          channelId: item.snippet.channelId,
-          channelTitle: item.snippet.channelTitle,
-          publishedAt: item.snippet.publishedAt,
-          thumbnail: item.snippet.thumbnails.medium.url,
-        }));
-
-        return {
-          videos: transformedData,
-          nextPageToken: response.data.nextPageToken || null,
-        };
-      })();
-
+      console.log("Fetching videos from YouTube API");
+      const url = `https://${RAPID_API_HOST}/search`;
+      const params = {
+        q: category,
+        part: "snippet",
+        maxResults: 5,
+        type: "video",
+        pageToken,
+      };
+      
+      const response = await axios.get(url, { ...options, params });
+      console.log("response from youtube API", response.data);
+      
+      if (!response.data.items) {
+        throw new Error("No videos found in YouTube API");
+      }
+  
+      // Transform YouTube data to consistent format
+      const youtubeVideos = response.data.items.map((item) => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        description: item.snippet.description,
+        channelId: item.snippet.channelId,
+        channelTitle: item.snippet.channelTitle,
+        publishedAt: item.snippet.publishedAt,
+        thumbnail: item.snippet.thumbnails.medium.url,
+        source: 'youtube', // Add source identifier
+        videoUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`, // YouTube video URL
+      }));
+  
+      const nextPageToken = response.data.nextPageToken || null;
+      console.log("youtubeVideos", youtubeVideos);
+      console.log("nextPageToken", nextPageToken);
+  
       // Fetch from MySQL database
-      const dbPromise = (async () => {
-        console.log("Fetching videos from MySQL database");
-        // Check if the category is valid
-        const validCategories = [ "training", "New", "Home", "programming", "music", "sports", "news"];
-        if (!validCategories.includes(category)) {
-          return res.status(400).json({ error: "Invalid category" });
-        }
-        // Fetch videos from the database
-        const query = `SELECT * FROM media_files WHERE category = ?`;
-        const [rows] = await pool.query(query, [category]);
-
-        const dbVideos = rows.map((row) => ({
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          fileUrl: row.file_url,
-          thumbnail: row.thumbnail_url || "default-thumbnail.jpg",
-          uploadedAt: row.uploaded_at,
-        }));
-
-        return dbVideos;
-      })();
-
-      // Wait for both promises to resolve
-      const [youtubeData, dbVideos] = await Promise.all([youtubePromise, dbPromise]);
-
+      console.log("Fetching videos from MySQL database");
+      const query = `SELECT * FROM media_files WHERE category = ?`;
+      const [rows] = await pool.query(query, [category]);
+      console.log("response from mysql", rows);
+  
+      // Transform database data to consistent format
+      const dbVideos = rows.map((row) => ({
+        id: `db_${row.id}`, // Prefix to avoid ID conflicts with YouTube
+        title: row.title,
+        description: row.description,
+        thumbnail: row.thumbnail_url || "default-thumbnail.jpg",
+        publishedAt: row.created_at, // Use created_at as publishedAt
+        source: 'database', // Add source identifier
+        videoUrl: row.file_url, // S3 video URL
+        fileType: row.file_type,
+        size: row.size,
+        format: row.format,
+        // Additional database-specific fields
+        tags: row.tags,
+        duration: row.duration,
+        resolution: row.resolution,
+      }));
+  
+      console.log("dbVideos", dbVideos);
+  
+      // Combine both arrays
+      const allVideos = [...youtubeVideos, ...dbVideos];
+  
+      // Return combined response
       res.json({
-        youtubeVideos: youtubeData.videos,
-        dbVideos,
-        nextPageToken: youtubeData.nextPageToken,
+        success: true,
+        videos: allVideos,
+        youtubeVideos: youtubeVideos, // Keep separate for backward compatibility
+        s3Videos: dbVideos, // Keep separate for backward compatibility
+        nextPageToken: nextPageToken,
+        totalCount: allVideos.length,
+        youtubeCount: youtubeVideos.length,
+        databaseCount: dbVideos.length,
       });
+  
     } catch (error) {
       console.error("Error fetching videos:", error);
-      res.status(500).json({ error: "Failed to fetch videos", message: error.message });
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch videos", 
+        message: error.message 
+      });
     }
   },
 
