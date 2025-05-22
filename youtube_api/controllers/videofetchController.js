@@ -57,6 +57,13 @@ const videoController = {
 
       // Fetch from MySQL database
       const dbPromise = (async () => {
+        console.log("Fetching videos from MySQL database");
+        // Check if the category is valid
+        const validCategories = [ "training", "New", "Home", "programming", "music", "sports", "news"];
+        if (!validCategories.includes(category)) {
+          return res.status(400).json({ error: "Invalid category" });
+        }
+        // Fetch videos from the database
         const query = `SELECT * FROM media_files WHERE category = ?`;
         const [rows] = await pool.query(query, [category]);
 
@@ -177,8 +184,8 @@ const videoController = {
   get1UtubeVideoAndDetails: async (req, res) => {
     try {
       const { videoId } = req.params;
-      if (!videoId) {
-        return res.status(400).json({ error: "Video ID is required" });
+      if (!videoId || typeof videoId !== "string") {
+        return res.status(400).json({ error: "Invalid video ID" });
       }
       // Check if the video ID is already cached
       const cacheKey = `video-${videoId}`;
@@ -201,7 +208,7 @@ const videoController = {
       console.log("response from getVideoDetails", response.data);
       if (!response.data.items || response.data.items.length === 0) {
         console.error("Video not found");
-        return res.status(304).json({ error: "Video not found" });
+        return res.status(404).json({ error: "Video not found" });
       }
 
       const video = response.data.items[0];
@@ -234,7 +241,9 @@ const videoController = {
     try {
       // Fetching metadata from MySQL database
       const { id } = req.params;
-
+      if (!id || isNaN(id)) {
+        return res.status(400).json({ error: "Invalid video ID" });
+      }
       const query = `SELECT * FROM media_files WHERE id = ?`;
       const [rows] = await pool.query(query, [id]);
 
@@ -258,6 +267,40 @@ const videoController = {
       res.status(500).json({ error: "Failed to fetch video details", message: error.message });
     }
   },
+
+  getChannelDetails: async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ error: "Channel ID is required" });
+      }
+  
+      const url = `https://${RAPID_API_HOST}/channels`;
+      const params = { part: "snippet,statistics", id };
+  
+      const response = await axios.get(url, { ...options, params });
+      if (!response.data.items || response.data.items.length === 0) {
+        return res.status(404).json({ error: "Channel not found" });
+      }
+  
+      const channel = response.data.items[0];
+      const transformedData = {
+        id: channel.id,
+        title: channel.snippet.title,
+        description: channel.snippet.description,
+        thumbnail: channel.snippet.thumbnails.medium.url,
+        subscriberCount: channel.statistics.subscriberCount,
+        videoCount: channel.statistics.videoCount,
+      };
+  
+      res.json(transformedData);
+    } catch (error) {
+      console.error("Error fetching channel details:", error);
+      res.status(500).json({ error: "Failed to fetch channel details", message: error.message });
+    }
+  },
+
+
 };
 
 module.exports = videoController;

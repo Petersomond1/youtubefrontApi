@@ -6,17 +6,17 @@ import Loader from "./Loader";
 
 function Videos({ videos, direction }) {
   if (!videos?.length) return <Loader />;
-
+//changed idx to id
   return (
     <div className="videos1" style={{ flexDirection: direction || "row" }}>
-      {videos.map((item, idx) => {
+      {videos.map((item, id) => {
         console.log("Item:", item); // Debug log to verify structure
 
         const videoId = item.id; // Video ID is directly in `id`
         const channelTitle = item.channelTitle; // Channel title is directly in `channelTitle`
 
         return (
-          <div key={idx}>
+          <div key={id}>
             {videoId && <VideoCard video={{ ...item, id: videoId }} />}
             {channelTitle && <ChannelCard channelDetail={{ ...item, channelTitle }} />}
           </div>

@@ -18,7 +18,7 @@ function Feed() {
       setYoutubeVideos((prev) => [...prev, ...data.youtubeVideos]);
       setS3Videos(data.s3Videos ?? []); // S3 videos are fetched all at once
       console.log("@feed Fetched YouTube videos:", data.youtubeVideos);
-      console.log("@feed Fetched S3 videos:", data.s3Videos);
+      console.log("@feed Fetched S3 videos:", data.s3Videos || "No S3 videos available");
       setNextPageToken(data.nextPageToken);
       setError(null);
     } catch (error) {

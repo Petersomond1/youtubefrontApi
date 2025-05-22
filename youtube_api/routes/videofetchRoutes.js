@@ -22,5 +22,8 @@ router.get("/:videoId", videoController.get1UtubeVideoAndDetails);
 // Fetch details of a specific video from S3/MySQL
 router.get("/s3/:id", videoController.get1S3VideoAndDetails);
 
+// Fetch route for chaannels details
+router.get("/channels/:id", videoController.getChannelDetails);
+
 
 module.exports = router;
