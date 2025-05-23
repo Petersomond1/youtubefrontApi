@@ -1,12 +1,14 @@
 // youtubefront\src\components\ChannelCard.jsx
 import React from "react";
 import { FaRegCheckCircle } from "react-icons/fa";
-import { demoProfilePicture } from "../utils/Constants";
+//import { demoProfilePicture } from "../utils/Constants";
 import "../index.css";
 import { Link } from "react-router-dom";
 
 const ChannelCard = ({ channelDetail = {}, marginTop }) => {
-  const { channelTitle, thumbnail } = channelDetail;
+  const { channelTitle,
+    // thumbnail
+   } = channelDetail;
 
   if (!channelTitle) {
     console.warn("Invalid channel data:", channelDetail);
@@ -37,7 +39,7 @@ const ChannelCard = ({ channelDetail = {}, marginTop }) => {
             color: "#fff",
           }}
         >
-          <img
+          {/* <img
             src={thumbnail || demoProfilePicture}
             alt={channelTitle || "Channel Thumbnail"}
             style={{
@@ -47,7 +49,7 @@ const ChannelCard = ({ channelDetail = {}, marginTop }) => {
               marginBottom: "2px",
               border: "1px solid #e3e3e3",
             }}
-          />
+          /> */}
           <h6>
             {channelTitle || "Channel Title"}{" "}
             <FaRegCheckCircle
