@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 # .gitignore
-=======
->>>>>>> 4cc83c51ba43ad2e770e940842e3119df8fb1da5
 # Logs
 logs
 *.log
@@ -28,11 +25,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-<<<<<<< HEAD
 
 .env
 .env.*
 Readme.md
 README.md
-=======
->>>>>>> 4cc83c51ba43ad2e770e940842e3119df8fb1da5
